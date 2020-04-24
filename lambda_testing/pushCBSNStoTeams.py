@@ -154,7 +154,7 @@ def snspush_handler(event, context):
       print(response)
 
 
-  sys.exit(0)
+  return { "status" : "SUCCESS" }
 
 
 
