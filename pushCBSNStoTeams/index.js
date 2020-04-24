@@ -38,7 +38,7 @@ exports.handler = async (event, context, callback) => {
         const status = detail["build-status"];
         const themeColor = status === "SUCCEEDED" ? "#CEDB56" : status === "IN_PROGRESS" ? "#76CDD8" : "#D35D47";
         const buildId = detail["build-id"].split('/')[1];
-        const region = 'us-east-1';
+        const region = 'us-east-2';
         const project = detail["project-name"];
         const summary = `[Build [${project}] notification](https://console.aws.amazon.com/codesuite/codebuild/projects/${project}/build/${buildId}/log?region=${region})`;
         const additional = detail["additional-information"];
