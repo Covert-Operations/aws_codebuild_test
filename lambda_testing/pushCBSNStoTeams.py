@@ -118,7 +118,7 @@ def snspush_handler(event, context):
       else:
         themeColor = "#D35D47"
         image = FAILED_IMAGE
-
+        status = '<p style=\"color:red;\">{}</p>'.format(status)
 
       # build the string that we want to send
       oo = {}
