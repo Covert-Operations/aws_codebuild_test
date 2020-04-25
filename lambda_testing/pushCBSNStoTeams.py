@@ -58,7 +58,7 @@ def snspush_handler(event, context):
     for record in records:
       print("checking records")
       raw_msg = record["Sns"]["Message"]
-      msg = raw_msg
+      msg = json.loads(raw_msg)
 
       detail = msg["detail"]
 
@@ -161,7 +161,7 @@ def snspush_handler(event, context):
 if __name__ == "__main__":
   import testpkg.sampleevent
 
-  event = testpkg.sampleevent.sample_sns_event
+  event = testpkg.sampleevent.aws_build_event
   context = {"name": "sample"}
 
   os.environ["TEAMS_WEBHOOK_URL"] = "https://outlook.office.com/webhook/387c2f0b-1220-4955-a2dd-3bac12ab4e1d@169ea2cd-9387-4a99-b50f-39148dd63fdf/IncomingWebhook/58cdf3357b344db0adf29e7de2c95334/cb29463c-3526-4041-bab7-c8373b5a79dd"

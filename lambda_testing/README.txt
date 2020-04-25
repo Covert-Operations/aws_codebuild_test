@@ -34,4 +34,4 @@ zip -g function.zip pushCBSNStoTeams.py
 
 # update the function code
 
-$ aws lambda update-function-code --function-name updateTeamsOnBuild --zip-file fileb://~/work/covert_consulting/aws_codebuild_test/function.zip --profile lambdadev
+$ aws lambda update-function-code --function-name updateTeamsOnBuild --zip-file fileb://~/work/covert_consulting/aws_codebuild_test/lambda_testing/function.zip --profile lambdadev
