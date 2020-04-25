@@ -143,7 +143,7 @@ def snspush_handler(event, context):
       fac.append({'name':  "Status",
                   'value': status})
       fac.append({'name':  'Date',
-                  'value': build_start_t})
+                  'value': build_start_t+" UTC"})
       fac.append({'name': "Source Branch",
                   'value': '[{}]({})'.format(branch, branch_url)})
       fac.append({'name': "Target Env",
