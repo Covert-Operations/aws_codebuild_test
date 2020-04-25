@@ -9,11 +9,16 @@ import datetime
 
 logger = logging.getLogger()
 try:
-  log_level = os.environ['LOG_LEVEL']
+  numeric_log_level = getattr(logging, os.environ['LOG_LEVEL'].upper(), None)
 except:
-    log_level = logging.ERROR
+  print("Threw Exception getting log level.")
+  numeric_log_level = logging.ERROR
 
-logger.setLevel(log_level)
+if not isinstance(numeric_log_level, int):
+  raise ValueError('Invalid log level: %s' % loglevel)
+
+logging.basicConfig(level=numeric_log_level, filename="team_push.log", filemode='w')
+logger.setLevel(numeric_log_level)
 
 """
   To execute this, it expects that the event object will have standard CodeBuild SNS object values passed in as a hash. Additonally, you'll need to have the following environment variables defined beforehand.
@@ -49,6 +54,8 @@ def detectSourceType(source):
 
 def snspush_handler(event, context):
   webhook_url = os.environ["TEAMS_WEBHOOK_URL"]
+
+  #logger.debug(json.dumps(event))
   
   if( event is not None and
       event["Records"] is not None and
@@ -56,18 +63,22 @@ def snspush_handler(event, context):
     records = event['Records']
 
     for record in records:
-      print("checking records")
       raw_msg = record["Sns"]["Message"]
       msg = json.loads(raw_msg)
 
       detail = msg["detail"]
 
-      logger.info("CodeBuild Event payload.\n{}".format(json.dumps(detail)))
+      #logger.info("CodeBuild Event payload.\n{}".format(json.dumps(detail)))
 
-      completed_phase = detail['completed-phase']
+      try:
+        completed_phase = detail['completed-phase']
+        completed_phase_status = detail['completed-phase-status']
+        completed_phase_end    = detail['completed-phase-end']
+      except:
+        completed_phase = None
+        completed_phase_status = None
+        completed_phase_end = None
       project_name    = detail['project-name']
-      completed_phase_status = detail['completed-phase-status']
-      completed_phase_end    = detail['completed-phase-end']
       buildId = detail['build-id'].split('/')[1]
       region = msg["region"]
       project = detail["project-name"]
@@ -77,7 +88,7 @@ def snspush_handler(event, context):
       build_complete  = bool(additional['build-complete'])
       build_start_t   = additional['build-start-time']
       try:
-        status          = additional["build-status"]
+        status          = detail["build-status"]
       except:
         status = completed_phase_status
 
@@ -108,51 +119,71 @@ def snspush_handler(event, context):
         themeColor = "#D35D47"
         image = FAILED_IMAGE
 
-      webhook_payload = json.dumps({"@type": 'MessageCard',
-                         '@context': 'http://schema.org/extensions',
-                         "themeColor": themeColor,
-                         "summary": summary,
-                         "sections": [
-                           {
-                             "activityTitle": summary,
-                             "activitySubtitle": 'On project [{}]'.format(project),
-                             "activityImage": image,
-                             "facts": [
-                               {
-                                 "name": 'Status',
-                                 "value": "{}".format(status)
-                               },
-                               {
-                                 "name": 'Date',
-                                 "value": "{}".format(build_start_t)
-                                },
-                               {
-                                 "name": 'Source Branch',
-                                 "value": '[{}]({})'.format(branch, branch_url)
-                                },
-                               {
-                                 "name": 'Target Env',
-                                 "value": "{}".format(env)
-                                }
-                               ],
-                               "markdown": True
-                            }
-                        ]
-                    })
 
-      print("set_images={}".format(""))
+      # build the string that we want to send
+      oo = {}
+      oo["@type"] = 'MessageCard'
+      oo['@context'] = 'http://schema.org/extensions' 
+      oo["themeColor"] = themeColor
+      oo["summary"] = summary
+      oo["sections"] = []
+
+      sections = []
+      sect = {}
+      sect["activityTitle"] = summary
+      sect['activitySubtitle'] = 'On project[{}]'.format(project)
+      sect['activityImage'] = image
+      sect['facts'] = []
+
+
+      fac = [] 
+      if completed_phase is not None:
+        fac.append({'name': "Phase", 'value': completed_phase})
+        
+      fac.append({'name':  "Status",
+                  'value': status})
+      fac.append({'name':  'Date',
+                  'value': build_start_t})
+      fac.append({'name': "Source Branch",
+                  'value': '[{}]({})'.format(branch, branch_url)})
+      fac.append({'name': "Target Env",
+                  'value': env})
+      fac.append({'name': "Build Finished?",
+                  'value': str(build_complete)})
+      
+      sect['facts'] = fac
+      sect['markdown'] = True
+      
+      sections.append(sect)
+
+      oo["sections"] = sections
+
+
+      webhook_payload = json.dumps(oo)
+      #webhook_payload = oo
+
+      #print("webhook_payload={}".format(webhook_payload))
 
       try:
-        print("after try")
+        logger.debug(webhook_payload)
         response = requests.post(webhook_url, data = webhook_payload)
-        print("after request")
+        #response = requests.post(webhook_url, json=webhook_payload)
 
       except:
         print("Unexpected error:", sys.exc_info()[0])
         raise
       
-      print(response)
+      logger.debug(response)
+      logger.debug(response.status_code)
+      logger.debug(response.reason)
+      logger.debug(response.url)
+      logger.debug(response.headers)
+      logger.debug(response.cookies)
+      logger.debug(response.text)
 
+      logger.debug(response.request)
+      logger.debug("Printing Entire Post Request")
+      logger.debug(response.request.body)
 
   return { "status" : "SUCCESS" }
 
@@ -161,10 +192,13 @@ def snspush_handler(event, context):
 if __name__ == "__main__":
   import testpkg.sampleevent
 
-  event = testpkg.sampleevent.aws_build_event
+  #event = testpkg.sampleevent.aws_build_event
+  event = testpkg.sampleevent.aws_build_complete
   context = {"name": "sample"}
 
-  os.environ["TEAMS_WEBHOOK_URL"] = "https://outlook.office.com/webhook/387c2f0b-1220-4955-a2dd-3bac12ab4e1d@169ea2cd-9387-4a99-b50f-39148dd63fdf/IncomingWebhook/58cdf3357b344db0adf29e7de2c95334/cb29463c-3526-4041-bab7-c8373b5a79dd"
+  TEAMS_WEBHOOK_URL = "https://outlook.office.com/webhook/387c2f0b-1220-4955-a2dd-3bac12ab4e1d@169ea2cd-9387-4a99-b50f-39148dd63fdf/IncomingWebhook/58cdf3357b344db0adf29e7de2c95334/cb29463c-3526-4041-bab7-c8373b5a79dd"
+
+  os.environ["TEAMS_WEBHOOK_URL"] = TEAMS_WEBHOOK_URL
   os.environ["env_name"] = "production"
   snspush_handler(event, context)
 
